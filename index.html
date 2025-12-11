@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
-<title>Розмальовка Єдинорога</title>
+<title>Розмальовка єдинорога</title>
 <style>
     body {
         background: #f7f7f7;
@@ -93,12 +93,11 @@ let currentColor = COLORS[0];
 COLORS.forEach((hex, i) => {
     const div = document.createElement("div");
     div.className = "color" + (i === 0 ? " active" : "");
-    div.style.background = hex;
+    div.style.backgroundColor = hex;
     div.dataset.color = hex;
     div.addEventListener("click", () => {
         currentColor = hex;
         document.querySelectorAll(".color").forEach(c => c.classList.remove("active"));
-        div.addEventListener
         div.classList.add("active");
     });
     paletteEl.appendChild(div);
@@ -120,4 +119,106 @@ function hexToRgba(hex) {
     hex = hex.replace("#", "");
     if (hex.length === 3) {
         hex = hex.split("").map(x => x + x).join("");
+    }
+    const num = parseInt(hex, 16);
+    return [
+        (num >> 16) & 255,
+        (num >> 8) & 255,
+        num & 255,
+        255
+    ];
+}
+
+// порівняння кольорів
+function colorsMatch(data, index, color, tolerance) {
+    const r = data[index];
+    const g = data[index + 1];
+    const b = data[index + 2];
+    const a = data[index + 3];
+
+    return Math.abs(r - color[0]) <= tolerance &&
+           Math.abs(g - color[1]) <= tolerance &&
+           Math.abs(b - color[2]) <= tolerance &&
+           Math.abs(a - color[3]) <= tolerance;
+}
+
+// флуд-філ
+function floodFill(x, y, fillColor, tolerance = 20) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    const startPos = (y * canvas.width + x) * 4;
+    const startColor = [
+        data[startPos],
+        data[startPos + 1],
+        data[startPos + 2],
+        data[startPos + 3]
+    ];
+
+    const fCol = fillColor;
+    if (startColor[0] === fCol[0] &&
+        startColor[1] === fCol[1] &&
+        startColor[2] === fCol[2] &&
+        startColor[3] === fCol[3]) {
+        return;
+    }
+
+    const stack = [[x, y]];
+    while (stack.length > 0) {
+        const [cx, cy] = stack.pop();
+        if (cx < 0 || cx >= canvas.width || cy < 0 || cy >= canvas.height) continue;
+
+        const idx = (cy * canvas.width + cx) * 4;
+        if (colorsMatch(data, idx, startColor, tolerance)) {
+            data[idx]     = fCol[0];
+            data[idx + 1] = fCol[1];
+            data[idx + 2] = fCol[2];
+            data[idx + 3] = 255;
+
+            stack.push([cx + 1, cy]);
+            stack.push([cx - 1, cy]);
+            stack.push([cx, cy + 1]);
+            stack.push([cx, cy - 1]);
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+}
+
+// клік / тап
+function handlePointer(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    const x = Math.floor((clientX - rect.left) * (canvas.width / rect.width));
+    const y = Math.floor((clientY - rect.top) * (canvas.height / rect.height));
+
+    const fillColor = hexToRgba(currentColor);
+    floodFill(x, y, fillColor, 25);
+}
+
+canvas.addEventListener("click", handlePointer);
+canvas.addEventListener("touchstart", e => {
+    e.preventDefault();
+    handlePointer(e);
+}, { passive: false });
+
+// "Скинути"
+document.getElementById("resetBtn").addEventListener("click", () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+});
+
+// "Завантажити малюнок"
+document.getElementById("saveBtn").addEventListener("click", () => {
+    const link = document.createElement("a");
+    link.download = "unicorn_colored.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+});
+</script>
+
+</body>
+</html>
+
 
